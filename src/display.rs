@@ -40,7 +40,7 @@ impl PoeDisplay {
         cpu_usage: String,
         temp: String,
         ram_usage: String,
-        disk_usage: &str,
+        hostname: &str,
         offset: Point,
     ) -> Result<(), DisplayError> {
         let disp = &mut self.display;
@@ -76,11 +76,10 @@ impl PoeDisplay {
         let next = Text::new("°", next + Point::new(0, 3), PROFONT12).draw(disp)?;
         Text::new("C", next - Point::new(0, 2), PCSENIOR8_STYLE).draw(disp)?;
 
-        let disk_width = disk_usage.len() as i32 * char_width;
-        let disk_pos = Point::new(99 - disk_width, 23 + y_offset) + offset;
-        let next = Text::new(disk_usage, disk_pos, PCSENIOR8_STYLE).draw(disp)?;
-        let next = Text::new("%", next, FONT_6X12).draw(disp)?;
-        Text::new("DISK", next + x_margin, FONT_5X8).draw(disp)?;
+        let host_width = hostname.len() as i32 * char_width;
+        let host_x = (display_width - host_width) / 2;
+        let host_pos = Point::new(host_x, 33) + offset;
+        Text::new(hostname, host_pos, FONT_5X8).draw(disp)?;
 
         disp.flush()
     }
