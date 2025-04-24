@@ -7,7 +7,7 @@ use std::fs;
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
-use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 mod fan_controller;
 use fan_controller::FanController;
@@ -35,7 +35,7 @@ struct SystemStats {
     cpu_temp: f32,
     cpu_temp_str: String,
     ram_usage: String,
-    disk_usage: String,
+    hostname: String,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     stats.cpu_usage,
                     stats.cpu_temp_str,
                     stats.ram_usage,
-                    &stats.disk_usage,
+                    &stats.hostname,
                     app_state.shift_offset,
                 )
                 .map_err(|e| format!("Display update error: {:?}", e))?;
@@ -218,7 +218,7 @@ fn gather_stats(sys: &mut System) -> SystemStats {
     sys.refresh_memory();
 
     let ip_address = get_ip_address();
-    let disk_usage = format!("{:.1}", get_disk_usage());
+    let hostname = get_hostname();
     let cpu_temp = get_cpu_temperature();
     let cpu_temp_str = format!("{:.1}", cpu_temp);
     let cpu_usage = format!("{:.1}", sys.global_cpu_usage());
@@ -230,7 +230,7 @@ fn gather_stats(sys: &mut System) -> SystemStats {
         cpu_temp,
         cpu_temp_str,
         ram_usage,
-        disk_usage,
+        hostname,
     }
 }
 
@@ -273,6 +273,22 @@ fn get_ip_address() -> String {
         .to_string()
 }
 
+fn get_hostname() -> String {
+    Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout).ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "UNKNOWN".to_string())
+        .trim()
+        .to_string()
+}
+
 fn get_cpu_temperature() -> f32 {
     match fs::read_to_string("/sys/class/thermal/thermal_zone0/temp") {
         Ok(contents) => contents.trim().parse::<f32>().unwrap_or(0.0) / 1000.0,
@@ -287,20 +303,4 @@ fn get_ram_usage(sys: &System) -> f64 {
     let total_memory = sys.total_memory();
     let used_memory = sys.used_memory();
     (used_memory as f64 / total_memory as f64) * 100.0
-}
-
-fn get_disk_usage() -> f64 {
-    let mut disks = Disks::new_with_refreshed_list();
-    if let Some(disk) = disks.first_mut() {
-        disk.refresh();
-        let total_space = disk.total_space();
-        let available_space = disk.available_space();
-        if total_space > 0 {
-            (1.0 - (available_space as f64 / total_space as f64)) * 100.0
-        } else {
-            0.0
-        }
-    } else {
-        0.0
-    }
 }
